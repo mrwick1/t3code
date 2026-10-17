@@ -473,7 +473,7 @@ export const layerWithOptions = (
        * Serialized per thread so two concurrent prepares cannot interleave
        * their rotate steps and revoke each other's freshly minted credential.
        */
-      const prepareMcpSession = (
+      const prepareStockMcpSession = (
         threadId: ThreadId,
         providerInstanceId: ProviderInstanceId,
       ): Effect.Effect<PreparedMcpCredential> =>
@@ -539,6 +539,28 @@ export const layerWithOptions = (
                 return { mcpCredentialId: credential.config.providerSessionId, issued: true };
               }),
             );
+      /** Fork: the `enableT3Mcp` server setting gates the stock MCP session; stock behavior when settings are unavailable. */
+      const prepareMcpSession = (
+        threadId: ThreadId,
+        providerInstanceId: ProviderInstanceId,
+      ): Effect.Effect<PreparedMcpCredential> =>
+        (Option.isNone(serverSettings)
+          ? Effect.succeed(true)
+          : serverSettings.value.getSettings.pipe(
+              Effect.map((settings) => settings.enableT3Mcp),
+              Effect.orElseSucceed(() => true),
+            )
+        ).pipe(
+          Effect.flatMap((enabled) =>
+            enabled
+              ? prepareStockMcpSession(threadId, providerInstanceId)
+              : mcpSessions
+                  .clear(threadId)
+                  .pipe(
+                    Effect.as<PreparedMcpCredential>({ mcpCredentialId: undefined, issued: false }),
+                  ),
+          ),
+        );
       /**
        * With a credential id, revocation is scoped to that credential and the
        * config slot is cleared only while it still holds it; a replacement

@@ -635,6 +635,7 @@ function makeBrowserAccessProject(projectId: ProjectId): Project {
 function runBrowserAccessScenario(input: {
   readonly enableAgentBrowserAccess: boolean;
   readonly projectOverride: boolean;
+  readonly enableT3Mcp?: boolean;
   readonly deviceOverride?: boolean;
   readonly createThread?: boolean;
   readonly projectExists?: boolean;
@@ -681,6 +682,7 @@ function runBrowserAccessScenario(input: {
           projectServiceLayer: layerProjectService,
           serverSettingsLayer: ServerSettings.layerTest({
             enableAgentBrowserAccess: input.enableAgentBrowserAccess,
+            ...(input.enableT3Mcp === undefined ? {} : { enableT3Mcp: input.enableT3Mcp }),
             projectSettingsOverrides: {
               [projectId]: {
                 enableAgentBrowserAccess: input.projectOverride,
@@ -1989,6 +1991,17 @@ it.effect("ProviderSessionManagerV2 honors a project browser-access opt-out", ()
     });
     assert.isDefined(captured);
     assert.equal(captured?.browserToolsAvailable, false);
+  }),
+);
+
+it.effect("ProviderSessionManagerV2 attaches no t3-code MCP session when enableT3Mcp is off", () =>
+  Effect.gen(function* () {
+    const captured = yield* runBrowserAccessScenario({
+      enableAgentBrowserAccess: true,
+      projectOverride: true,
+      enableT3Mcp: false,
+    });
+    assert.isUndefined(captured);
   }),
 );
 
